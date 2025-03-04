@@ -1,5 +1,6 @@
 from requests import get
 from ipdb import set_trace
+from centauri.walmart.models import Inventory
 
 set_trace
 
@@ -13,4 +14,8 @@ response = get(
         "WM_SEC.ACCESS_TOKEN": "the_WM_SEC.ACCESS_TOKEN"
     }
 )
+
+set_trace()
 print(response.json())
+
+print(Inventory(**response.json()))

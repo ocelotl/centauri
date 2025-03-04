@@ -1,17 +1,7 @@
 from fastapi import FastAPI, Header
-from pydantic import BaseModel
+from centauri.walmart.models import Quantity, Inventory
 
 app = FastAPI()
-
-
-class Quantity(BaseModel):
-    unit: str
-    amount: int
-
-
-class Inventory(BaseModel):
-    sku: str
-    quantity: Quantity
 
 
 @app.get("/v3/inventory")
