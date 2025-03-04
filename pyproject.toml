@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "centauri"
+dynamic = ["version"]
+description = "Centauri package"
+readme = "README.rst"
+license = "Apache-2.0"
+requires-python = ">=3.7"
+authors = [
+  { name = "Diego Hurtado", email = "diegohurtado@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+  "Flask",
+]
+
+[tool.hatch.version]
+path = "src/centauri/version.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/centauri"]
