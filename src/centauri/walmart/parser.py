@@ -2,9 +2,8 @@ from pathlib import Path
 from os import listdir
 from json import load, dumps
 from ipdb import set_trace
-from collections import OrderedDict
 
-
+set_trace
 dumps
 schemas_path = Path(__file__).parent.joinpath("schemas")
 
@@ -19,85 +18,105 @@ _type_type = {
 }
 
 
-def parse_schema(schema_path: Path, parsed_schema: dict):
+def parse_schema(schema: dict, path: list):
 
-    def traverse_schema(schema: dict, path: list, parsed_schema: dict):
+    parsed_schema = {}
 
-        schema_type = schema.get("type")
+    schema_type = schema.get("type")
 
-        if schema_type == "array":
-            traverse_schema(schema["items"], path, parsed_schema)
+    if schema_type == "object":
 
-        if schema_type == "object":
+        schema_properties = schema.get("properties", {})
 
-            schema_properties = schema.get("properties", {})
+        all_properties = set(schema_properties.keys())
 
-            all_properties = set(schema_properties.keys())
+        required_properties = set(schema.get("required", []))
 
-            required_properties = set(schema.get("required", []))
+        optional_properties = all_properties.difference(
+            required_properties
+        )
 
-            optional_properties = all_properties.difference(
-                required_properties
-            )
+        required_properties = sorted(list(required_properties))
+        optional_properties = sorted(list(optional_properties))
 
-            required_properties = sorted(list(required_properties))
-            optional_properties = sorted(list(optional_properties))
+        parsed_schema["required_properties"] = []
+        parsed_schema["optional_properties"] = []
 
-            result_required_properties = OrderedDict()
-            result_optional_properties = OrderedDict()
+        def process_properties(
+            schema: dict,
+            properties: list,
+            schema_propeties: dict,
+            parsed_schema_properties: list,
+            path: list
+        ):
 
-            for required_property in required_properties:
+            for property_ in properties:
 
-                required_property_type = _type_type[
-                    schema_properties[required_property]["type"]
+                property_type = _type_type[
+                    schema_properties[property_]["type"]
                 ].__name__
 
-                if (
-                    required_property_type == "list" or
-                    required_property_type == "object"
-                ):
-                    path.append(required_property)
-                    traverse_schema(
-                        schema["properties"][required_property],
-                        path,
-                        parsed_schema
+                if property_type == "object":
+                    path.append(property_)
+                    parsed_schema_properties.append(
+                        {
+                            "is_array": False,
+                            property_: parse_schema(
+                                schema["properties"][property_],
+                                path
+                            )
+                        }
                     )
                     path.pop()
 
-                result_required_properties[required_property] = (
-                    required_property_type
-                )
-
-            for optional_property in optional_properties:
-
-                optional_property_type = _type_type[
-                    schema_properties[optional_property]["type"]
-                ].__name__
-
-                if (
-                    optional_property_type == "list" or
-                    optional_property_type == "object"
-                ):
-                    path.append(required_property)
-                    traverse_schema(
-                        schema["properties"][optional_property],
-                        path,
-                        parsed_schema
+                if property_type == "array":
+                    path.append(property_)
+                    parsed_schema_properties.append(
+                        {
+                            "is_array": True,
+                            property_: parse_schema(
+                                schema["properties"][property_]["items"],
+                                path
+                            )
+                        }
                     )
                     path.pop()
 
-                result_optional_properties[optional_property] = (
-                    optional_property_type
-                )
+                else:
+                    parsed_schema_properties.append(
+                        {
+                            property_: property_type
+                        }
+                    )
 
-            result = OrderedDict()
-            result["class_name"] = schema["xml"]["name"]
+        process_properties(
+            schema,
+            required_properties,
+            schema_properties,
+            parsed_schema["required_properties"],
+            path
+        )
+        process_properties(
+            schema,
+            optional_properties,
+            schema_properties,
+            parsed_schema["optional_properties"],
+            path
+        )
 
-            result.update(result_required_properties)
-            result.update(result_optional_properties)
+        if "xml" in schema.keys():
+            parsed_schema["name"] = schema["xml"]["name"]
 
-            print(dumps(result, indent=4))
-            set_trace()
+        else:
+            parsed_schema["name"] = None
+
+        parsed_schema["path"] = "/".join(path)
+
+    print(dumps(parsed_schema, indent=4))
+    return parsed_schema
+
+
+def process_schema(schema_path: Path) -> dict:
 
     with open(schema_path) as schema_file:
         schema = load(schema_file)
@@ -127,14 +146,27 @@ def parse_schema(schema_path: Path, parsed_schema: dict):
             for status_code_key, status_code_value in (
                 operation_value.items()
             ):
-                traverse_schema(
+                parsed_schema = parse_schema(
                     status_code_value,
-                    ["/".join([path_key, operation_key, status_code_key])]
+                    [
+                        "/".join(
+                            [
+                                schema_path.name,
+                                "paths",
+                                path_key[1:],
+                                operation_key,
+                                status_code_key
+                            ]
+                        )
+                    ]
                 )
+                print(dumps(parsed_schema, indent=4))
+                set_trace()
+                True
 
 
 for schema in listdir(schemas_path):
 
-    parsed_schema = {}
-
-    parse_schema(schemas_path.joinpath(schema), parsed_schema)
+    processed_schema = process_schema(schemas_path.joinpath(schema))
+    set_trace()
+    True
