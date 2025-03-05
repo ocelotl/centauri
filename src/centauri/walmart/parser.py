@@ -56,6 +56,17 @@ def parse_schema(schema: dict, path: list):
                     schema_properties[property_]["type"]
                 ].__name__
 
+                if (
+                    property_type == "str" and
+                    "enum" in schema_properties[property_].keys()
+                ):
+                    parsed_schema_properties.append(
+                        {
+                            property_: "enum",
+                            "values": schema_properties[property_]["enum"]
+                        }
+                    )
+
                 if property_type == "object":
                     path.append(property_)
                     parsed_schema_properties.append(
@@ -69,7 +80,7 @@ def parse_schema(schema: dict, path: list):
                     )
                     path.pop()
 
-                if property_type == "array":
+                elif property_type == "list":
                     path.append(property_)
                     parsed_schema_properties.append(
                         {
@@ -112,7 +123,6 @@ def parse_schema(schema: dict, path: list):
 
         parsed_schema["path"] = "/".join(path)
 
-    print(dumps(parsed_schema, indent=4))
     return parsed_schema
 
 
@@ -141,32 +151,37 @@ def process_schema(schema_path: Path) -> dict:
                         ["application/json"]["schema"]
                     )
 
+    processed_schema = {}
+
     for path_key, path_value in paths.items():
         for operation_key, operation_value in path_value.items():
             for status_code_key, status_code_value in (
                 operation_value.items()
             ):
-                parsed_schema = parse_schema(
-                    status_code_value,
+
+                processed_path = "/".join(
                     [
-                        "/".join(
-                            [
-                                schema_path.name,
-                                "paths",
-                                path_key[1:],
-                                operation_key,
-                                status_code_key
-                            ]
-                        )
+                        schema_path.name,
+                        "paths",
+                        path_key[1:],
+                        operation_key,
+                        status_code_key
                     ]
                 )
-                print(dumps(parsed_schema, indent=4))
-                set_trace()
-                True
+
+                processed_schema[processed_path] = parse_schema(
+                    status_code_value,
+                    [processed_path]
+                )
+
+    return processed_schema
 
 
 for schema in listdir(schemas_path):
 
     processed_schema = process_schema(schemas_path.joinpath(schema))
-    set_trace()
-    True
+
+    with open(schemas_path.joinpath(f"processed_{schema}"), "w") as (
+        processed_schema_file
+    ):
+        processed_schema_file.write(dumps(processed_schema, indent=4))
